@@ -25,9 +25,9 @@
 <body class="bg-zinc-950 text-white h-screen overflow-hidden">
 
 <div class="flex h-screen">
-    <!-- Sidebar kiri -->
+    <!-- Sidebar -->
     <div class="w-80 bg-zinc-900 flex flex-col border-r border-zinc-800">
-        <div class="p-6 border-b border-zinc-800 relative">
+        <div class="p-6 border-b border-zinc-800">
             <div class="flex items-center gap-3">
                 <div class="text-4xl">💬</div>
                 <h1 class="text-3xl font-bold">ChatID</h1>
@@ -44,9 +44,12 @@
             <input type="file" id="profile-file" accept="image/*" class="hidden" />
         </div>
 
-        <div class="p-4">
+        <div class="p-4 space-y-3">
             <button id="btn-new-chat" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-3xl font-semibold flex items-center justify-center gap-2">
                 <span class="text-2xl">+</span> Chat Baru
+            </button>
+            <button id="btn-voice-room" class="w-full py-4 bg-green-600 hover:bg-green-700 rounded-3xl font-semibold flex items-center justify-center gap-2">
+                <span class="text-2xl">🔊</span> Voice Room
             </button>
         </div>
 
@@ -57,18 +60,20 @@
         </div>
     </div>
 
-    <!-- Area chat utama -->
+    <!-- Chat Area -->
     <div class="flex-1 flex flex-col">
-        <div id="chat-header" class="h-16 bg-zinc-900 border-b border-zinc-800 px-6 flex items-center text-xl font-medium">
-            Pilih atau buat chat baru
+        <div id="chat-header" class="h-16 bg-zinc-900 border-b border-zinc-800 px-6 flex items-center justify-between text-xl font-medium">
+            <div>Pilih atau buat chat baru</div>
+            <div class="flex items-center gap-4">
+                <div id="voice-status" class="text-sm text-zinc-400 hidden">Voice Room: <span id="voice-participants">0</span> orang</div>
+            </div>
         </div>
         <div id="messages" class="flex-1 chat-bg overflow-y-auto p-6 space-y-6"></div>
         <div class="bg-zinc-900 border-t border-zinc-800 p-4 flex gap-3 items-center">
-            <button id="btn-call"   class="w-12 h-12 flex items-center justify-center text-2xl hover:bg-zinc-800 rounded-2xl">📞</button>
             <button id="btn-record" class="w-12 h-12 flex items-center justify-center text-2xl hover:bg-zinc-800 rounded-2xl">🎤</button>
             <button id="btn-upload" class="w-12 h-12 flex items-center justify-center text-3xl hover:bg-zinc-800 rounded-2xl">📷</button>
             <input id="text-input" type="text" placeholder="Ketik pesan..." class="flex-1 bg-zinc-800 border border-zinc-700 focus:border-blue-500 rounded-3xl px-6 py-4 outline-none text-lg" />
-            <button id="btn-send"   class="w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center justify-center text-3xl">➤</button>
+            <button id="btn-send" class="w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center justify-center text-3xl">➤</button>
         </div>
     </div>
 </div>
@@ -83,7 +88,7 @@
     </div>
 </div>
 
-<!-- Modal Buat chat baru -->
+<!-- Modal Chat Baru -->
 <div id="new-chat-screen" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-50">
     <div class="bg-zinc-900 rounded-3xl p-10 w-full max-w-md mx-4">
         <h2 class="text-2xl font-bold mb-6">Chat Baru</h2>
@@ -99,7 +104,7 @@
 
 <script>
 // ==============================================
-// CONFIG & CONSTANTS
+// CONFIG
 // ==============================================
 const firebaseConfig = {
   apiKey: "AIzaSyCYdEimQqA64njI3msp3Bm_xfwrqKV4KRA",
@@ -111,10 +116,11 @@ const firebaseConfig = {
   appId: "1:615653231847:web:2e664039d5c5511335a642"
 };
 
-const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
+const VOICE_ROOM_ID = "global-voice-room";
 
 // ==============================================
-// STORAGE HELPER
+// STORAGE & UI
 // ==============================================
 const Storage = {
   getMyId() { return localStorage.getItem("chat_myId") || ""; },
@@ -130,9 +136,6 @@ const Storage = {
   }
 };
 
-// ==============================================
-// UI HELPER
-// ==============================================
 const UI = {
   elements: {
     loginScreen: document.getElementById("login-screen"),
@@ -144,6 +147,8 @@ const UI = {
     messages: document.getElementById("messages"),
     textInput: document.getElementById("text-input"),
     fileInput: document.getElementById("file-input"),
+    voiceStatus: document.getElementById("voice-status"),
+    voiceParticipants: document.getElementById("voice-participants"),
   },
 
   showLogin() { this.elements.loginScreen.classList.remove("hidden"); },
@@ -166,13 +171,26 @@ const UI = {
     const avatarStyle = avatarUrl ? `style="background-image:url(${avatarUrl})"` : '';
     const avatarContent = avatarUrl ? '' : '👤';
     this.elements.chatHeader.innerHTML = `
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-4 flex-1">
         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
         <div>
           <div class="font-semibold text-lg">${otherId}</div>
           <div class="text-emerald-400 text-sm">sedang aktif</div>
         </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button id="btn-invite-voice" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-sm font-medium">
+          Invite ke Voice
+        </button>
+        <div id="voice-status" class="text-sm text-zinc-400 hidden">Voice Room: <span id="voice-participants">0</span> orang</div>
       </div>`;
+
+    // Bind invite button
+    document.getElementById("btn-invite-voice")?.addEventListener("click", () => {
+      if (confirm(`Invite ${otherId} ke Voice Room?`)) {
+        VoiceRoom.inviteUser(otherId);
+      }
+    });
   },
 
   renderContacts(contacts, currentRoom, profiles) {
@@ -180,15 +198,13 @@ const UI = {
       this.elements.contactList.innerHTML = `<div class="p-8 text-center text-zinc-500">Belum ada kontak<br><small>Klik tombol di atas</small></div>`;
       return;
     }
-
-    const html = contacts.map(c => {
+    this.elements.contactList.innerHTML = contacts.map(c => {
       const pic = profiles[c] || null;
       const avatarStyle = pic ? `style="background-image:url(${pic})"` : '';
       const avatarContent = pic ? '' : '👤';
       const isActive = currentRoom && currentRoom.includes(c);
       return `
-        <div onclick="App.openChat('${c}')" 
-             class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${isActive ? 'bg-zinc-800' : ''}">
+        <div onclick="App.openChat('${c}')" class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${isActive ? 'bg-zinc-800' : ''}">
           <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
           <div class="flex-1">
             <div class="font-semibold">${c}</div>
@@ -197,41 +213,28 @@ const UI = {
         </div>
       `;
     }).join("");
-    this.elements.contactList.innerHTML = html;
   },
 
   renderMessages(messages, myId) {
-    const html = messages.map(m => {
+    this.elements.messages.innerHTML = messages.map(m => {
       const isMe = m.sender === myId;
-
-      if (m.type === "image") {
-        return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
-                  <img src="${m.content}" class="max-w-[70%] sm:max-w-xs rounded-3xl shadow-2xl">
-                </div>`;
-      }
-
-      if (m.type === "audio") {
-        return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
-                  <audio controls src="${m.content}" class="max-w-xs"></audio>
-                </div>`;
-      }
-
-      return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
-                <div class="${isMe ? 'bg-blue-600' : 'bg-zinc-800'} px-5 py-3 rounded-3xl max-w-[70%] sm:max-w-xs break-words">
-                  ${m.content}
-                </div>
-              </div>`;
+      if (m.type === "image") return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}"><img src="${m.content}" class="max-w-[70%] sm:max-w-xs rounded-3xl shadow-2xl"></div>`;
+      if (m.type === "audio") return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}"><audio controls src="${m.content}" class="max-w-xs"></audio></div>`;
+      return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}"><div class="${isMe ? 'bg-blue-600' : 'bg-zinc-800'} px-5 py-3 rounded-3xl max-w-[70%] sm:max-w-xs break-words">${m.content}</div></div>`;
     }).join("");
-
-    this.elements.messages.innerHTML = html;
     this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
   },
 
-  clearInput() { this.elements.textInput.value = ""; }
+  clearInput() { this.elements.textInput.value = ""; },
+
+  updateVoiceStatus(count) {
+    this.elements.voiceParticipants.textContent = count;
+    this.elements.voiceStatus.classList.toggle("hidden", count <= 0);
+  }
 };
 
 // ==============================================
-// FIREBASE SERVICE
+// FIREBASE
 // ==============================================
 const FirebaseService = {
   db: null,
@@ -244,8 +247,7 @@ const FirebaseService = {
 
   listenToRoom(roomId, callback) {
     if (this.currentListener) this.currentListener.off();
-    const ref = this.db.ref(`chats/${roomId}/messages`);
-    this.currentListener = ref.on("value", snap => {
+    this.currentListener = this.db.ref(`chats/${roomId}/messages`).on("value", snap => {
       const data = snap.val() || {};
       const msgs = Object.values(data).sort((a,b) => a.timestamp - b.timestamp);
       callback(msgs);
@@ -268,13 +270,163 @@ const FirebaseService = {
   },
 
   sendMessage(roomId, sender, content, type = "text") {
-    this.db.ref(`chats/${roomId}/messages`).push({
-      sender, content, type, timestamp: Date.now()
-    });
+    this.db.ref(`chats/${roomId}/messages`).push({ sender, content, type, timestamp: Date.now() });
+  }
+};
+
+// ==============================================
+// VOICE ROOM (invite-only)
+// ==============================================
+const VoiceRoom = {
+  localStream: null,
+  peers: {},
+  myId: null,
+  allowedUsers: [],
+
+  async loadAllowedUsers() {
+    const snap = await FirebaseService.db.ref(`voice-room/invites/${VOICE_ROOM_ID}/allowed`).once("value");
+    this.allowedUsers = snap.val() || [];
   },
 
-  sendCallSignal(roomId, data) {
-    this.db.ref(`calls/${roomId}`).set(data);
+  isAllowed(uid) {
+    return this.allowedUsers.includes(uid) || uid === "admin"; // tambah admin kalau mau
+  },
+
+  async inviteUser(targetId) {
+    await this.loadAllowedUsers();
+    if (!this.allowedUsers.includes(targetId)) {
+      this.allowedUsers.push(targetId);
+      await FirebaseService.db.ref(`voice-room/invites/${VOICE_ROOM_ID}/allowed`).set(this.allowedUsers);
+      if (App.currentRoom) {
+        FirebaseService.sendMessage(App.currentRoom, App.myId, `Aku invite kamu ke Voice Room! Buka Voice Room untuk join.`, "text");
+      }
+      alert(`Berhasil invite ${targetId} ke Voice Room!`);
+    } else {
+      alert(`${targetId} sudah bisa join.`);
+    }
+  },
+
+  async join() {
+    if (this.localStream) return;
+
+    await this.loadAllowedUsers();
+    if (!this.isAllowed(App.myId)) {
+      alert("Kamu belum diinvite ke Voice Room. Minta invite dari teman yang sudah join!");
+      return;
+    }
+
+    try {
+      this.myId = App.myId;
+      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      FirebaseService.db.ref(`voice-room/participants/${this.myId}`).set({
+        joinedAt: Date.now(),
+        muted: false
+      });
+
+      // Dengar participant baru
+      FirebaseService.db.ref(`voice-room/participants`).on("child_added", snap => {
+        const uid = snap.key;
+        if (uid === this.myId || !this.isAllowed(uid)) return;
+        this.createPeerConnection(uid);
+      });
+
+      // Participant keluar
+      FirebaseService.db.ref(`voice-room/participants`).on("child_removed", snap => {
+        const uid = snap.key;
+        if (this.peers[uid]) {
+          this.peers[uid].close();
+          delete this.peers[uid];
+        }
+        UI.updateVoiceStatus(Object.keys(this.peers).length + (this.localStream ? 1 : 0));
+      });
+
+      // Signaling
+      FirebaseService.db.ref(`voice-room/signaling`).on("child_added", async snap => {
+        const data = snap.val();
+        if (data.to !== this.myId) return;
+
+        const pc = this.peers[data.from];
+        if (!pc) return;
+
+        try {
+          if (data.type === "offer") {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            this.sendSignal(data.from, "answer", pc.localDescription);
+          } else if (data.type === "answer") {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
+          } else if (data.type === "ice") {
+            await pc.addIceCandidate(new RTCIceCandidate(data.payload));
+          }
+        } catch (err) {
+          console.error("Signaling error:", err);
+        }
+        snap.ref.remove();
+      });
+
+      UI.updateVoiceStatus(1);
+      document.getElementById("btn-voice-room").innerHTML = '<span class="text-2xl">🚪</span> Keluar Voice Room';
+      alert("Kamu masuk Voice Room! Semua yang diinvite bisa dengar suara kamu.");
+
+    } catch (err) {
+      alert("Gagal akses mikrofon: " + err.message);
+    }
+  },
+
+  async leave() {
+    if (!this.localStream) return;
+
+    this.localStream.getTracks().forEach(t => t.stop());
+    this.localStream = null;
+
+    Object.values(this.peers).forEach(pc => pc.close());
+    this.peers = {};
+
+    FirebaseService.db.ref(`voice-room/participants/${this.myId}`).remove();
+
+    UI.updateVoiceStatus(0);
+    document.getElementById("btn-voice-room").innerHTML = '<span class="text-2xl">🔊</span> Voice Room';
+    alert("Kamu keluar dari Voice Room.");
+  },
+
+  createPeerConnection(targetId) {
+    if (this.peers[targetId]) return;
+
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+
+    this.localStream?.getTracks().forEach(track => pc.addTrack(track, this.localStream));
+
+    pc.ontrack = e => {
+      const audio = new Audio();
+      audio.srcObject = e.streams[0];
+      audio.autoplay = true;
+      audio.play().catch(() => {});
+    };
+
+    pc.onicecandidate = e => {
+      if (e.candidate) this.sendSignal(targetId, "ice", e.candidate);
+    };
+
+    this.peers[targetId] = pc;
+
+    (async () => {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      this.sendSignal(targetId, "offer", pc.localDescription);
+    })();
+
+    UI.updateVoiceStatus(Object.keys(this.peers).length + 1);
+  },
+
+  sendSignal(to, type, payload) {
+    FirebaseService.db.ref(`voice-room/signaling`).push({
+      from: this.myId,
+      to,
+      type,
+      payload: payload.toJSON ? payload.toJSON() : payload
+    });
   }
 };
 
@@ -287,14 +439,8 @@ const App = {
   currentRoom: null,
   profiles: {},
 
-  // Voice Note
   mediaRecorder: null,
   audioChunks: [],
-
-  // WebRTC Call
-  peer: null,
-  localStream: null,
-  callListenerRef: null,
 
   start() {
     this.myId = Storage.getMyId();
@@ -316,25 +462,31 @@ const App = {
 
     this.bindEvents();
     this.initVoiceNote();
-    this.initCallEvents();
   },
 
   bindEvents() {
-    document.getElementById("btn-login").onclick     = () => this.handleLogin();
-    document.getElementById("btn-new-chat").onclick  = () => UI.showNewChat();
+    document.getElementById("btn-login").onclick = () => this.handleLogin();
+    document.getElementById("btn-new-chat").onclick = () => UI.showNewChat();
     document.getElementById("btn-cancel-new").onclick = () => UI.hideNewChat();
     document.getElementById("btn-add-contact").onclick = () => this.addContactAndOpen();
-    document.getElementById("btn-send").onclick      = () => this.sendText();
-    document.getElementById("btn-upload").onclick    = () => UI.elements.fileInput.click();
-    document.getElementById("file-input").onchange   = e => this.sendPhoto(e.target);
-    UI.elements.textInput.onkeypress = e => { if (e.key === "Enter") this.sendText(); };
+    document.getElementById("btn-send").onclick = () => this.sendText();
+    document.getElementById("btn-upload").onclick = () => UI.elements.fileInput.click();
+    document.getElementById("file-input").onchange = e => this.sendPhoto(e.target);
     document.getElementById("profile-file").onchange = e => this.uploadProfilePic(e.target);
+    UI.elements.textInput.onkeypress = e => { if (e.key === "Enter") this.sendText(); };
+
+    document.getElementById("btn-voice-room").onclick = async () => {
+      if (VoiceRoom.localStream) {
+        VoiceRoom.leave();
+      } else {
+        await VoiceRoom.join();
+      }
+    };
   },
 
   handleLogin() {
     const id = document.getElementById("login-id").value.trim();
     if (!id) return alert("ID tidak boleh kosong!");
-
     this.myId = id;
     Storage.saveMyId(id);
     UI.hideLogin();
@@ -351,7 +503,6 @@ const App = {
   addContactAndOpen() {
     const id = document.getElementById("new-contact-id").value.trim();
     if (!id || id === this.myId) return alert("ID tidak valid atau sama dengan ID kamu!");
-
     Storage.addContact(id);
     this.contacts = Storage.getContacts();
     UI.hideNewChat();
@@ -362,13 +513,10 @@ const App = {
   openChat(otherId) {
     const roomId = [this.myId, otherId].sort().join("_");
     this.currentRoom = roomId;
-
     UI.elements.messages.innerHTML = "";
     UI.renderContacts(this.contacts, roomId, this.profiles);
-
     const avatar = this.profiles[otherId] || null;
     UI.setHeader(otherId, avatar);
-
     FirebaseService.listenToRoom(roomId, msgs => {
       if (this.currentRoom !== roomId) return;
       UI.renderMessages(msgs, this.myId);
@@ -386,11 +534,8 @@ const App = {
     const file = input.files[0];
     if (!file || !this.currentRoom) return;
     if (file.size > MAX_PHOTO_SIZE) return alert("Foto max 5MB");
-
     const reader = new FileReader();
-    reader.onload = e => {
-      FirebaseService.sendMessage(this.currentRoom, this.myId, e.target.result, "image");
-    };
+    reader.onload = e => FirebaseService.sendMessage(this.currentRoom, this.myId, e.target.result, "image");
     reader.readAsDataURL(file);
     input.value = "";
   },
@@ -399,7 +544,6 @@ const App = {
     const file = input.files[0];
     if (!file) return;
     if (file.size > MAX_PHOTO_SIZE) return alert("Foto profil max 5MB");
-
     const reader = new FileReader();
     reader.onload = e => {
       const dataUrl = e.target.result;
@@ -412,37 +556,27 @@ const App = {
     input.value = "";
   },
 
-  // ────────────────────────────────────────────────
-  //           VOICE NOTE
-  // ────────────────────────────────────────────────
   initVoiceNote() {
     const recordBtn = document.getElementById("btn-record");
-
     recordBtn.onclick = async () => {
       if (!this.currentRoom) return alert("Buka chat dulu!");
-
       if (!this.mediaRecorder) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           this.mediaRecorder = new MediaRecorder(stream);
-
           this.mediaRecorder.ondataavailable = e => this.audioChunks.push(e.data);
           this.mediaRecorder.onstop = () => {
             const blob = new Blob(this.audioChunks, { type: "audio/webm" });
             this.audioChunks = [];
-
             const reader = new FileReader();
-            reader.onload = e => {
-              FirebaseService.sendMessage(this.currentRoom, this.myId, e.target.result, "audio");
-            };
+            reader.onload = e => FirebaseService.sendMessage(this.currentRoom, this.myId, e.target.result, "audio");
             reader.readAsDataURL(blob);
           };
         } catch (err) {
-          alert("Gagal mengakses mikrofon: " + err.message);
+          alert("Gagal akses mikrofon: " + err.message);
           return;
         }
       }
-
       if (this.mediaRecorder.state === "inactive") {
         this.mediaRecorder.start();
         recordBtn.textContent = "⏹";
@@ -453,138 +587,9 @@ const App = {
         recordBtn.classList.remove("text-red-500");
       }
     };
-  },
-
-  // ────────────────────────────────────────────────
-  //           SIMPLE AUDIO CALL (WebRTC)
-  // ────────────────────────────────────────────────
-  initCallEvents() {
-    document.getElementById("btn-call").onclick = () => this.startCall();
-  },
-
-  async startCall() {
-    if (!this.currentRoom) return alert("Buka chat dulu!");
-
-    try {
-      this.peer = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-      });
-
-      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.localStream.getTracks().forEach(track => this.peer.addTrack(track, this.localStream));
-
-      this.peer.ontrack = e => {
-        const audio = new Audio();
-        audio.srcObject = e.streams[0];
-        audio.autoplay = true;
-        audio.play().catch(() => {});
-      };
-
-      this.peer.onicecandidate = (event) => {
-        if (event.candidate) {
-          FirebaseService.db.ref(`calls/${this.currentRoom}/candidates`).push(event.candidate);
-        }
-      };
-
-      FirebaseService.db.ref(`calls/${this.currentRoom}/candidates`).on("child_added", async snap => {
-        const candidate = snap.val();
-        if (candidate && this.peer && !this.peer.remoteDescription) {
-          try {
-            await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
-          } catch (err) {
-            console.warn("Gagal add ICE candidate:", err);
-          }
-        }
-      });
-
-      const offer = await this.peer.createOffer();
-      await this.peer.setLocalDescription(offer);
-
-      FirebaseService.sendCallSignal(this.currentRoom, {
-        offer: this.peer.localDescription,
-        caller: this.myId,
-        timestamp: Date.now()
-      });
-
-      // Dengar jawaban
-      FirebaseService.db.ref(`calls/${this.currentRoom}`).on("value", async snap => {
-        const data = snap.val();
-        if (!data) return;
-        if (data.answer && !this.peer.currentRemoteDescription) {
-          await this.peer.setRemoteDescription(new RTCSessionDescription(data.answer));
-        }
-      });
-
-    } catch (err) {
-      alert("Gagal memulai panggilan: " + err.message);
-      console.error(err);
-    }
-  },
-
-  async listenIncomingCall() {
-    if (!this.currentRoom || this.callListenerRef) return;
-
-    this.callListenerRef = FirebaseService.db.ref(`calls/${this.currentRoom}`).on("value", async snap => {
-      const data = snap.val();
-      if (!data || !data.offer || data.caller === this.myId) return;
-
-      if (!confirm(`Panggilan masuk dari ${data.caller}. Terima?`)) return;
-
-      try {
-        this.peer = new RTCPeerConnection({
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-        });
-
-        this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.localStream.getTracks().forEach(track => this.peer.addTrack(track, this.localStream));
-
-        this.peer.ontrack = e => {
-          const audio = new Audio();
-          audio.srcObject = e.streams[0];
-          audio.autoplay = true;
-          audio.play().catch(() => {});
-        };
-
-        this.peer.onicecandidate = (event) => {
-          if (event.candidate) {
-            FirebaseService.db.ref(`calls/${this.currentRoom}/candidates`).push(event.candidate);
-          }
-        };
-
-        FirebaseService.db.ref(`calls/${this.currentRoom}/candidates`).on("child_added", async snap => {
-          const candidate = snap.val();
-          if (candidate && this.peer) {
-            try {
-              await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
-            } catch (err) {
-              console.warn("Gagal add ICE candidate (penerima):", err);
-            }
-          }
-        });
-
-        await this.peer.setRemoteDescription(new RTCSessionDescription(data.offer));
-        const answer = await this.peer.createAnswer();
-        await this.peer.setLocalDescription(answer);
-
-        FirebaseService.sendCallSignal(this.currentRoom, { ...data, answer: this.peer.localDescription });
-      } catch (err) {
-        alert("Gagal menerima panggilan: " + err.message);
-        console.error(err);
-      }
-    });
   }
 };
 
-// Getter & Setter untuk currentRoom + trigger listener panggilan
-Object.defineProperty(App, 'currentRoom', {
-  set(value) {
-    this._currentRoom = value;
-    if (value) App.listenIncomingCall();
-  },
-  get() { return this._currentRoom || null; }
-});
-
-// Jalankan aplikasi
 App.start();
 </script>
 </body>
