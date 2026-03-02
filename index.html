@@ -1,531 +1,412 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat App Sederhana</title>
-  <style>
-    /* CSS untuk tampilan modern mirip WhatsApp/Telegram */
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f0f2f5;
-      display: flex;
-      height: 100vh;
-    }
-
-    #auth-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-    }
-
-    #auth-form {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      width: 300px;
-    }
-
-    #auth-form input {
-      width: 100%;
-      margin: 10px 0;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-    }
-
-    #auth-form button {
-      width: 100%;
-      padding: 10px;
-      background: #25D366;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    #chat-container {
-      display: none;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    #sidebar {
-      width: 300px;
-      background: #fff;
-      border-right: 1px solid #ddd;
-      overflow-y: auto;
-    }
-
-    #contact-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    #contact-list li {
-      padding: 15px;
-      border-bottom: 1px solid #ddd;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-    }
-
-    #contact-list li img {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      margin-right: 10px;
-    }
-
-    #contact-list li .status {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: gray;
-      margin-left: auto;
-    }
-
-    #contact-list li .status.online {
-      background: #25D366;
-    }
-
-    #chat-window {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: #e5ddd5 url('https://i.imgur.com/3zQrY8F.png') repeat; /* Background chat seperti WA */
-    }
-
-    #chat-header {
-      background: #ededed;
-      padding: 15px;
-      border-bottom: 1px solid #ddd;
-      display: flex;
-      align-items: center;
-    }
-
-    #chat-header img {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      margin-right: 10px;
-    }
-
-    #messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-    }
-
-    .message {
-      max-width: 70%;
-      margin-bottom: 10px;
-      padding: 10px;
-      border-radius: 8px;
-      position: relative;
-    }
-
-    .message.sent {
-      background: #dcf8c6;
-      align-self: flex-end;
-      margin-left: auto;
-    }
-
-    .message.received {
-      background: #fff;
-      align-self: flex-start;
-    }
-
-    .message img, .message video {
-      max-width: 100%;
-      border-radius: 8px;
-    }
-
-    #input-area {
-      display: flex;
-      padding: 10px;
-      background: #f0f0f0;
-    }
-
-    #message-input {
-      flex: 1;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 20px;
-      margin-right: 10px;
-    }
-
-    #send-btn, #upload-btn, #call-btn, #video-call-btn {
-      background: #25D366;
-      color: white;
-      border: none;
-      padding: 10px;
-      border-radius: 50%;
-      cursor: pointer;
-      margin-left: 5px;
-    }
-
-    #notification {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #25D366;
-      color: white;
-      padding: 10px;
-      border-radius: 4px;
-      display: none;
-    }
-
-    #profile-container {
-      display: none;
-      position: absolute;
-      top: 50px;
-      right: 20px;
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      #sidebar {
-        width: 100%;
-        display: none; /* Toggle via JS jika perlu */
-      }
-      #chat-container {
-        flex-direction: column;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatID • Chat Pakai ID</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.3.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.3.0/firebase-database-compat.min.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; }
+        .chat-bg { background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://picsum.photos/id/1015/2000/1200'); background-size: cover; }
+        .avatar { background-size: cover; background-position: center; }
+    </style>
 </head>
-<body>
-  <!-- Auth Container -->
-  <div id="auth-container">
-    <form id="auth-form">
-      <h2 id="auth-title">Login</h2>
-      <input type="text" id="username" placeholder="Username" required>
-      <input type="email" id="email" placeholder="Email" required>
-      <input type="password" id="password" placeholder="Password" required>
-      <button type="submit" id="auth-btn">Login</button>
-      <p id="toggle-auth">Belum punya akun? Daftar di sini</p>
-    </form>
-  </div>
+<body class="bg-zinc-950 text-white h-screen overflow-hidden">
 
-  <!-- Chat Container -->
-  <div id="chat-container">
-    <div id="sidebar">
-      <ul id="contact-list"></ul>
+<div class="flex h-screen">
+    <div class="w-80 bg-zinc-900 flex flex-col border-r border-zinc-800">
+        <div class="p-6 border-b border-zinc-800 relative">
+            <div class="flex items-center gap-3">
+                <div class="text-4xl">💬</div>
+                <h1 class="text-3xl font-bold">ChatID</h1>
+            </div>
+            <div class="mt-6 flex items-center gap-4">
+                <div id="my-avatar" class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-5xl cursor-pointer avatar" onclick="document.getElementById('profile-file').click()">
+                    👤
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400">ID KAMU</p>
+                    <div id="my-id-display" class="font-mono text-lg break-all"></div>
+                </div>
+            </div>
+            <input type="file" id="profile-file" accept="image/*" class="hidden" onchange="App.uploadProfilePic(this)" />
+        </div>
+
+        <div class="p-4">
+            <button id="btn-new-chat" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-3xl font-semibold flex items-center justify-center gap-2">
+                <span class="text-2xl">+</span> Chat Baru
+            </button>
+        </div>
+
+        <div id="contact-list" class="flex-1 overflow-y-auto px-3"></div>
+
+        <div class="p-4 text-xs text-zinc-500 border-t border-zinc-800 text-center">
+            Web chat by Leciy • IG:zizizaayyy 🔥
+        </div>
     </div>
-    <div id="chat-window">
-      <div id="chat-header">
-        <img id="contact-profile" src="default.jpg" alt="Profile">
-        <span id="contact-name"></span>
-        <span id="contact-status"></span>
-        <button id="profile-btn">Profil</button>
-      </div>
-      <div id="messages"></div>
-      <div id="input-area">
-        <input type="text" id="message-input" placeholder="Ketik pesan...">
-        <button id="send-btn">📤</button>
-        <input type="file" id="media-upload" accept="image/*,video/*" style="display:none;">
-        <button id="upload-btn">📎</button>
-        <button id="call-btn">📞</button>
-        <button id="video-call-btn">📹</button>
-      </div>
+
+    <div class="flex-1 flex flex-col">
+        <div id="chat-header" class="h-16 bg-zinc-900 border-b border-zinc-800 px-6 flex items-center text-xl font-medium">
+            Pilih atau buat chat baru
+        </div>
+        <div id="messages" class="flex-1 chat-bg overflow-y-auto p-6 space-y-6"></div>
+        <div class="bg-zinc-900 border-t border-zinc-800 p-4 flex gap-3 items-center">
+            <button id="btn-upload" class="w-12 h-12 flex items-center justify-center text-3xl hover:bg-zinc-800 rounded-2xl">📷</button>
+            <input id="text-input" type="text" placeholder="Ketik pesan..." class="flex-1 bg-zinc-800 border border-zinc-700 focus:border-blue-500 rounded-3xl px-6 py-4 outline-none text-lg" />
+            <button id="btn-send" class="w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center justify-center text-3xl">➤</button>
+        </div>
     </div>
-  </div>
+</div>
 
-  <!-- Notifikasi -->
-  <div id="notification"></div>
+<!-- Modal Login & New Chat sama seperti sebelumnya -->
+<div id="login-screen" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-3xl p-10 w-full max-w-md mx-4">
+        <h2 class="text-4xl font-bold text-center mb-3">Halo 👋</h2>
+        <p class="text-zinc-400 text-center mb-8">Masukkan ID kamu (bebas)</p>
+        <input id="login-id" type="text" placeholder="contoh: violence123" class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 text-2xl text-center outline-none focus:border-blue-500" />
+        <button id="btn-login" class="mt-8 w-full py-5 bg-blue-600 hover:bg-blue-700 rounded-3xl text-2xl font-semibold">MULAI CHAT</button>
+    </div>
+</div>
 
-  <!-- Profile Container -->
-  <div id="profile-container">
-    <img id="my-profile-pic" src="default.jpg" alt="My Profile" width="100">
-    <input type="file" id="profile-upload" accept="image/*">
-    <button id="change-profile">Ganti Foto</button>
-  </div>
+<div id="new-chat-screen" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-3xl p-10 w-full max-w-md mx-4">
+        <h2 class="text-2xl font-bold mb-6">Chat Baru</h2>
+        <input id="new-contact-id" type="text" placeholder="ID teman kamu" class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 text-xl outline-none focus:border-blue-500" />
+        <div class="flex gap-4 mt-8">
+            <button id="btn-cancel-new" class="flex-1 py-5 border border-zinc-700 rounded-3xl font-medium">Batal</button>
+            <button id="btn-add-contact" class="flex-1 py-5 bg-blue-600 rounded-3xl font-medium">Tambah & Buka</button>
+        </div>
+    </div>
+</div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
-  <script>
-    // JS untuk logic app
-    // Asumsi backend di http://localhost:5000 (seperti respons sebelumnya)
-    // Untuk simplicity, gunakan localStorage untuk token, fetch untuk API, Socket.io untuk real-time
+<input type="file" id="file-input" accept="image/*" class="hidden" />
 
-    const socket = io('http://localhost:5000'); // Ganti dengan URL backend
+<script>
+// ==============================================
+// CONFIG & CONSTANTS
+// ==============================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCYdEimQqA64njI3msp3Bm_xfwrqKV4KRA",
+  authDomain: "website-music-f0123.firebaseapp.com",
+  databaseURL: "https://website-music-f0123-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "website-music-f0123",
+  storageBucket: "website-music-f0123.firebasestorage.app",
+  messagingSenderId: "615653231847",
+  appId: "1:615653231847:web:2e664039d5c5511335a642"
+};
 
-    // Elemen DOM
-    const authContainer = document.getElementById('auth-container');
-    const chatContainer = document.getElementById('chat-container');
-    const authForm = document.getElementById('auth-form');
-    const authTitle = document.getElementById('auth-title');
-    const authBtn = document.getElementById('auth-btn');
-    const toggleAuth = document.getElementById('toggle-auth');
-    const usernameInput = document.getElementById('username');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const contactList = document.getElementById('contact-list');
-    const contactName = document.getElementById('contact-name');
-    const contactStatus = document.getElementById('contact-status');
-    const contactProfile = document.getElementById('contact-profile');
-    const messagesDiv = document.getElementById('messages');
-    const messageInput = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-btn');
-    const uploadBtn = document.getElementById('upload-btn');
-    const mediaUpload = document.getElementById('media-upload');
-    const callBtn = document.getElementById('call-btn');
-    const videoCallBtn = document.getElementById('video-call-btn');
-    const notification = document.getElementById('notification');
-    const profileBtn = document.getElementById('profile-btn');
-    const profileContainer = document.getElementById('profile-container');
-    const myProfilePic = document.getElementById('my-profile-pic');
-    const profileUpload = document.getElementById('profile-upload');
-    const changeProfile = document.getElementById('change-profile');
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB
 
-    let isLogin = true;
-    let currentContact = null;
-    let userId = null;
+// ==============================================
+// STORAGE HELPER
+// ==============================================
+const Storage = {
+  getMyId() { return localStorage.getItem("chat_myId") || ""; },
+  saveMyId(id) { localStorage.setItem("chat_myId", id); },
+  getContacts() { return JSON.parse(localStorage.getItem("chat_contacts") || "[]"); },
+  saveContacts(contacts) { localStorage.setItem("chat_contacts", JSON.stringify(contacts)); },
+  addContact(id) {
+    let contacts = this.getContacts();
+    if (!contacts.includes(id)) {
+      contacts.unshift(id);
+      this.saveContacts(contacts);
+    }
+  }
+};
 
-    // Toggle login/register
-    toggleAuth.addEventListener('click', () => {
-      isLogin = !isLogin;
-      authTitle.textContent = isLogin ? 'Login' : 'Register';
-      authBtn.textContent = isLogin ? 'Login' : 'Register';
-      toggleAuth.textContent = isLogin ? 'Belum punya akun? Daftar di sini' : 'Sudah punya akun? Login di sini';
-      usernameInput.style.display = isLogin ? 'none' : 'block';
-    });
+// ==============================================
+// UI HELPER
+// ==============================================
+const UI = {
+  elements: {
+    loginScreen: document.getElementById("login-screen"),
+    newChatScreen: document.getElementById("new-chat-screen"),
+    myIdDisplay: document.getElementById("my-id-display"),
+    myAvatar: document.getElementById("my-avatar"),
+    contactList: document.getElementById("contact-list"),
+    chatHeader: document.getElementById("chat-header"),
+    messages: document.getElementById("messages"),
+    textInput: document.getElementById("text-input"),
+    fileInput: document.getElementById("file-input"),
+  },
 
-    // Handle auth
-    authForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const body = isLogin ? { email: emailInput.value, password: passwordInput.value } : { username: usernameInput.value, email: emailInput.value, password: passwordInput.value };
-      
-      try {
-        const res = await fetch(`http://localhost:5000${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          localStorage.setItem('token', data.token);
-          userId = data.user.id;
-          authContainer.style.display = 'none';
-          chatContainer.style.display = 'flex';
-          loadContacts();
-          socket.emit('userOnline', userId);
-        } else {
-          alert('Auth failed');
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    });
+  showLogin() { this.elements.loginScreen.classList.remove("hidden"); },
+  hideLogin() { this.elements.loginScreen.classList.add("hidden"); },
+  showNewChat() { this.elements.newChatScreen.classList.remove("hidden"); },
+  hideNewChat() { this.elements.newChatScreen.classList.add("hidden"); },
 
-    // Load contacts (daftar user)
-    async function loadContacts() {
-      try {
-        const res = await fetch('http://localhost:5000/api/user', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        });
-        const users = await res.json();
-        contactList.innerHTML = '';
-        users.forEach(user => {
-          if (user.id !== userId) {
-            const li = document.createElement('li');
-            li.innerHTML = `<img src="${user.profilePicture}" alt="${user.username}"> ${user.username} <span class="status ${user.online ? 'online' : ''}"></span>`;
-            li.addEventListener('click', () => openChat(user));
-            contactList.appendChild(li);
-          }
-        });
-      } catch (err) {
-        console.error(err);
-      }
+  setMyId(id) { this.elements.myIdDisplay.textContent = id; },
+  setMyAvatar(url) {
+    if (url) {
+      this.elements.myAvatar.style.backgroundImage = `url(${url})`;
+      this.elements.myAvatar.innerHTML = '';
+    } else {
+      this.elements.myAvatar.style.backgroundImage = '';
+      this.elements.myAvatar.innerHTML = '👤';
+    }
+  },
+
+  setHeader(otherId, avatarUrl = null) {
+    const avatarStyle = avatarUrl ? `style="background-image:url(${avatarUrl})"` : '';
+    const avatarContent = avatarUrl ? '' : '👤';
+    this.elements.chatHeader.innerHTML = `
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
+        <div>
+          <div class="font-semibold text-lg">${otherId}</div>
+          <div class="text-emerald-400 text-sm">sedang aktif</div>
+        </div>
+      </div>`;
+  },
+
+  renderContacts(contacts, currentRoom, profiles, onClick) {
+    const html = contacts.length === 0
+      ? `<div class="p-8 text-center text-zinc-500">Belum ada kontak<br><small>Klik tombol di atas</small></div>`
+      : contacts.map(c => {
+          const pic = profiles[c] || null;
+          const avatarStyle = pic ? `style="background-image:url(${pic})"` : '';
+          const avatarContent = pic ? '' : '👤';
+          return `
+            <div onclick="App.openChat('${c}')" 
+                 class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${currentRoom?.includes(c) ? 'bg-zinc-800' : ''}">
+              <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
+              <div class="flex-1">
+                <div class="font-semibold">${c}</div>
+                <div class="text-xs text-emerald-400">online</div>
+              </div>
+            </div>
+          `;
+        }).join("");
+    this.elements.contactList.innerHTML = html;
+  },
+
+  renderMessages(messages, myId) {
+    const html = messages.map(m => {
+      const isMe = m.sender === myId;
+      return m.type === "image"
+        ? `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}"><img src="${m.content}" class="max-w-xs rounded-3xl shadow-2xl"></div>`
+        : `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+             <div class="${isMe ? 'bg-blue-600' : 'bg-zinc-800'} px-5 py-3 rounded-3xl max-w-xs">${m.content}</div>
+           </div>`;
+    }).join("");
+    this.elements.messages.innerHTML = html;
+    this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+  },
+
+  clearInput() { this.elements.textInput.value = ""; }
+};
+
+// ==============================================
+// FIREBASE SERVICE (FIXED CLEAN)
+// ==============================================
+const FirebaseService = {
+  db: null,
+  currentListener: null,
+
+  init() {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    this.db = firebase.database();
+  },
+
+  listenToRoom(roomId, callback) {
+    // MATIIN SEMUA LISTENER LAMA
+    if (this.currentListener) {
+      this.currentListener.off();
+      this.currentListener = null;
     }
 
-    // Open chat with contact
-    function openChat(contact) {
-      currentContact = contact;
-      contactName.textContent = contact.username;
-      contactStatus.textContent = contact.online ? 'Online' : 'Offline';
-      contactProfile.src = contact.profilePicture;
-      messagesDiv.innerHTML = '';
-      loadMessages(contact.id);
-      const room = [userId, contact.id].sort().join('_');
-      socket.emit('joinRoom', room);
-    }
+    const ref = this.db.ref(`chats/${roomId}/messages`);
+    this.currentListener = ref;
 
-    // Load history messages
-    async function loadMessages(contactId) {
-      try {
-        const res = await fetch(`http://localhost:5000/api/chat/${contactId}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        });
-        const messages = await res.json();
-        messages.forEach(msg => displayMessage(msg));
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    // Display message
-    function displayMessage(msg) {
-      const div = document.createElement('div');
-      div.classList.add('message', msg.sender === userId ? 'sent' : 'received');
-      if (msg.content) {
-        div.textContent = msg.content;
-      } else if (msg.media.endsWith('.mp4')) {
-        const video = document.createElement('video');
-        video.src = msg.media;
-        video.controls = true;
-        div.appendChild(video);
-      } else {
-        const img = document.createElement('img');
-        img.src = msg.media;
-        div.appendChild(img);
-      }
-      messagesDiv.appendChild(div);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-
-    // Send message
-    sendBtn.addEventListener('click', () => {
-      const content = messageInput.value;
-      if (content && currentContact) {
-        const room = [userId, currentContact.id].sort().join('_');
-        const message = { content, sender: userId, receiver: currentContact.id };
-        socket.emit('sendMessage', { room, message });
-        displayMessage(message);
-        messageInput.value = '';
-      }
+    ref.on("value", snap => {
+      const data = snap.val() || {};
+      const msgs = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+      callback(msgs);
     });
+  },
 
-    // Receive message
-    socket.on('receiveMessage', (msg) => {
-      if (currentContact && msg.sender === currentContact.id) {
-        displayMessage(msg);
-      } else {
-        showNotification(`Pesan baru dari ${msg.sender}`);
-      }
-    });
-
-    // Upload media
-    uploadBtn.addEventListener('click', () => mediaUpload.click());
-    mediaUpload.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (file && currentContact) {
-        const formData = new FormData();
-        formData.append('media', file);
-        try {
-          const res = await fetch('http://localhost:5000/api/media/upload', {
-            method: 'POST',
-            body: formData,
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-          });
-          const { url } = await res.json();
-          const room = [userId, currentContact.id].sort().join('_');
-          const message = { media: url, sender: userId, receiver: currentContact.id };
-          socket.emit('sendMessage', { room, message });
-          displayMessage(message);
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    });
-
-    // Status update
-    socket.on('userStatus', ({ userId: uid, online }) => {
-      if (currentContact && currentContact.id === uid) {
-        contactStatus.textContent = online ? 'Online' : 'Offline';
-      }
-      // Update di contact list
-      const contacts = contactList.querySelectorAll('li');
-      contacts.forEach(li => {
-        if (li.textContent.includes(uid)) { // Asumsi username unik
-          const status = li.querySelector('.status');
-          status.classList.toggle('online', online);
-        }
+  listenProfiles(callback) {
+    this.db.ref("users").on("value", snap => {
+      const data = snap.val() || {};
+      const profiles = {};
+      Object.keys(data).forEach(uid => {
+        if (data[uid].profilePic) profiles[uid] = data[uid].profilePic;
       });
+      callback(profiles);
     });
+  },
 
-    // Notifikasi
-    function showNotification(text) {
-      notification.textContent = text;
-      notification.style.display = 'block';
-      setTimeout(() => notification.style.display = 'none', 3000);
+  saveProfilePic(uid, dataUrl) {
+    this.db.ref(`users/${uid}/profilePic`).set(dataUrl);
+  },
+
+  sendMessage(roomId, sender, content, type = "text") {
+    this.db.ref(`chats/${roomId}/messages`).push({
+      sender,
+      content,
+      type,
+      timestamp: Date.now()
+    });
+  },
+
+  sendPhoto(roomId, sender, dataUrl) {
+    this.sendMessage(roomId, sender, dataUrl, "image");
+  }
+};
+
+
+// ==============================================
+// APP (FIXED CLEAN)
+// ==============================================
+const App = {
+  myId: "",
+  contacts: [],
+  currentRoom: null,
+  profiles: {},
+
+  start() {
+    this.myId = Storage.getMyId();
+    this.contacts = Storage.getContacts();
+
+    if (this.myId) {
+      UI.hideLogin();
+      UI.setMyId(this.myId);
+      FirebaseService.init();
+
+      FirebaseService.listenProfiles(profiles => {
+        this.profiles = profiles;
+        if (profiles[this.myId]) UI.setMyAvatar(profiles[this.myId]);
+        this.renderContacts();
+      });
+    } else {
+      UI.showLogin();
     }
 
-    // Profile
-    profileBtn.addEventListener('click', () => {
-      profileContainer.style.display = profileContainer.style.display === 'block' ? 'none' : 'block';
-      // Load current profile pic (fetch dari API jika perlu)
+    this.bindEvents();
+  },
+
+  bindEvents() {
+    document.getElementById("btn-login").onclick = () => this.handleLogin();
+    document.getElementById("btn-new-chat").onclick = () => UI.showNewChat();
+    document.getElementById("btn-cancel-new").onclick = () => UI.hideNewChat();
+    document.getElementById("btn-add-contact").onclick = () => this.addContactAndOpen();
+    document.getElementById("btn-send").onclick = () => this.sendText();
+    document.getElementById("btn-upload").onclick = () => UI.elements.fileInput.click();
+    document.getElementById("file-input").onchange = e => this.sendPhoto(e.target);
+    UI.elements.textInput.onkeypress = e => { if (e.key === "Enter") this.sendText(); };
+  },
+
+  renderContacts() {
+    const html = this.contacts.map(c => {
+      const pic = this.profiles[c] || null;
+      const avatarStyle = pic ? `style="background-image:url(${pic})"` : "";
+      const avatarContent = pic ? "" : "👤";
+      const roomId = [this.myId, c].sort().join("_");
+
+      return `
+        <div onclick="App.openChat('${c}')"
+             class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${this.currentRoom === roomId ? 'bg-zinc-800' : ''}">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
+          <div class="flex-1">
+            <div class="font-semibold">${c}</div>
+            <div class="text-xs text-emerald-400">online</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    UI.elements.contactList.innerHTML = html;
+  },
+
+  handleLogin() {
+    const id = document.getElementById("login-id").value.trim();
+    if (!id) return alert("ID tidak boleh kosong!");
+
+    this.myId = id;
+    Storage.saveMyId(id);
+    UI.hideLogin();
+    UI.setMyId(id);
+    FirebaseService.init();
+
+    FirebaseService.listenProfiles(profiles => {
+      this.profiles = profiles;
+      if (profiles[this.myId]) UI.setMyAvatar(profiles[this.myId]);
+      this.renderContacts();
     });
+  },
 
-    changeProfile.addEventListener('click', () => profileUpload.click());
-    profileUpload.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const formData = new FormData();
-        formData.append('media', file);
-        try {
-          const res = await fetch('http://localhost:5000/api/user/profile', { // Asumsi endpoint update profile
-            method: 'POST',
-            body: formData,
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-          });
-          const { url } = await res.json();
-          myProfilePic.src = url;
-          // Update di header jika perlu
-        } catch (err) {
-          console.error(err);
-        }
-      }
+  addContactAndOpen() {
+    const id = document.getElementById("new-contact-id").value.trim();
+    if (!id || id === this.myId) return alert("ID tidak valid!");
+
+    Storage.addContact(id);
+    this.contacts = Storage.getContacts();
+    UI.hideNewChat();
+    this.renderContacts();
+    this.openChat(id);
+  },
+
+  openChat(otherId) {
+    const roomId = [this.myId, otherId].sort().join("_");
+    this.currentRoom = roomId;
+
+    UI.elements.messages.innerHTML = "";
+    this.renderContacts();
+
+    const avatar = this.profiles[otherId] || null;
+    UI.setHeader(otherId, avatar);
+
+    FirebaseService.listenToRoom(roomId, msgs => {
+      if (this.currentRoom !== roomId) return;
+      UI.renderMessages(msgs, this.myId);
     });
+  },
 
-    // Voice/Video Call (Basic WebRTC)
-    let localStream;
-    const myVideo = document.createElement('video');
-    myVideo.muted = true;
-    const partnerVideo = document.createElement('video');
+  sendText() {
+    const text = UI.elements.textInput.value.trim();
+    if (!text || !this.currentRoom) return;
 
-    async function startCall(isVideo) {
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true });
-        myVideo.srcObject = localStream;
-        myVideo.play();
-        // Tampilkan di modal atau div baru
-        const callDiv = document.createElement('div');
-        callDiv.appendChild(myVideo);
-        callDiv.appendChild(partnerVideo);
-        document.body.appendChild(callDiv); // Styling tambahan needed
+    FirebaseService.sendMessage(this.currentRoom, this.myId, text);
+    UI.clearInput();
+  },
 
-        // Signaling via socket
-        socket.emit('callUser', { userToCall: currentContact.id, signalData: 'signal_here', from: userId, isVideo });
-      } catch (err) {
-        console.error(err);
-      }
-    }
+  sendPhoto(input) {
+    const file = input.files[0];
+    if (!file || !this.currentRoom) return;
+    if (file.size > MAX_PHOTO_SIZE) return alert("Foto max 5MB");
 
-    callBtn.addEventListener('click', () => startCall(false));
-    videoCallBtn.addEventListener('click', () => startCall(true));
+    const reader = new FileReader();
+    reader.onload = e => {
+      FirebaseService.sendPhoto(this.currentRoom, this.myId, e.target.result);
+    };
 
-    // Handle incoming call (tambah logic socket.on('callUser', ...))
-    // Untuk full WebRTC, gunakan library seperti simple-peer seperti di respons sebelumnya
+    reader.readAsDataURL(file);
+    input.value = "";
+  },
 
-    // Init
-    if (localStorage.getItem('token')) {
-      authContainer.style.display = 'none';
-      chatContainer.style.display = 'flex';
-      loadContacts();
-      socket.emit('userOnline', userId); // Asumsi userId disimpan di localStorage juga
-    }
-  </script>
+  uploadProfilePic(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > MAX_PHOTO_SIZE) return alert("Foto profil max 5MB");
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const dataUrl = e.target.result;
+      FirebaseService.saveProfilePic(this.myId, dataUrl);
+      UI.setMyAvatar(dataUrl);
+      this.profiles[this.myId] = dataUrl;
+      this.renderContacts();
+    };
+
+    reader.readAsDataURL(file);
+    input.value = "";
+  }
+};
+
+// Start app
+App.start();
+</script>
 </body>
 </html>
