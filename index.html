@@ -5,17 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatID • Chat Pakai ID</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.3.0/firebase-app-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.3.0/firebase-database-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
     <style>
-        body { font-family: system-ui, sans-serif; }
-        .chat-bg { background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://picsum.photos/id/1015/2000/1200'); background-size: cover; }
-        .avatar { background-size: cover; background-position: center; }
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .chat-bg { 
+            background-image: linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)), 
+                              url('https://picsum.photos/id/1015/2000/1200'); 
+            background-size: cover; 
+            background-position: center;
+        }
+        .avatar { 
+            background-size: cover; 
+            background-position: center; 
+            background-repeat: no-repeat;
+        }
     </style>
 </head>
 <body class="bg-zinc-950 text-white h-screen overflow-hidden">
 
 <div class="flex h-screen">
+    <!-- Sidebar kiri -->
     <div class="w-80 bg-zinc-900 flex flex-col border-r border-zinc-800">
         <div class="p-6 border-b border-zinc-800 relative">
             <div class="flex items-center gap-3">
@@ -31,7 +41,7 @@
                     <div id="my-id-display" class="font-mono text-lg break-all"></div>
                 </div>
             </div>
-            <input type="file" id="profile-file" accept="image/*" class="hidden" onchange="App.uploadProfilePic(this)" />
+            <input type="file" id="profile-file" accept="image/*" class="hidden" />
         </div>
 
         <div class="p-4">
@@ -47,21 +57,24 @@
         </div>
     </div>
 
+    <!-- Area chat utama -->
     <div class="flex-1 flex flex-col">
         <div id="chat-header" class="h-16 bg-zinc-900 border-b border-zinc-800 px-6 flex items-center text-xl font-medium">
             Pilih atau buat chat baru
         </div>
         <div id="messages" class="flex-1 chat-bg overflow-y-auto p-6 space-y-6"></div>
         <div class="bg-zinc-900 border-t border-zinc-800 p-4 flex gap-3 items-center">
+            <button id="btn-call"   class="w-12 h-12 flex items-center justify-center text-2xl hover:bg-zinc-800 rounded-2xl">📞</button>
+            <button id="btn-record" class="w-12 h-12 flex items-center justify-center text-2xl hover:bg-zinc-800 rounded-2xl">🎤</button>
             <button id="btn-upload" class="w-12 h-12 flex items-center justify-center text-3xl hover:bg-zinc-800 rounded-2xl">📷</button>
             <input id="text-input" type="text" placeholder="Ketik pesan..." class="flex-1 bg-zinc-800 border border-zinc-700 focus:border-blue-500 rounded-3xl px-6 py-4 outline-none text-lg" />
-            <button id="btn-send" class="w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center justify-center text-3xl">➤</button>
+            <button id="btn-send"   class="w-12 h-12 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center justify-center text-3xl">➤</button>
         </div>
     </div>
 </div>
 
-<!-- Modal Login & New Chat sama seperti sebelumnya -->
-<div id="login-screen" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-50">
+<!-- Modal Login -->
+<div id="login-screen" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
     <div class="bg-zinc-900 rounded-3xl p-10 w-full max-w-md mx-4">
         <h2 class="text-4xl font-bold text-center mb-3">Halo 👋</h2>
         <p class="text-zinc-400 text-center mb-8">Masukkan ID kamu (bebas)</p>
@@ -70,6 +83,7 @@
     </div>
 </div>
 
+<!-- Modal Buat chat baru -->
 <div id="new-chat-screen" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-50">
     <div class="bg-zinc-900 rounded-3xl p-10 w-full max-w-md mx-4">
         <h2 class="text-2xl font-bold mb-6">Chat Baru</h2>
@@ -161,36 +175,54 @@ const UI = {
       </div>`;
   },
 
-  renderContacts(contacts, currentRoom, profiles, onClick) {
-    const html = contacts.length === 0
-      ? `<div class="p-8 text-center text-zinc-500">Belum ada kontak<br><small>Klik tombol di atas</small></div>`
-      : contacts.map(c => {
-          const pic = profiles[c] || null;
-          const avatarStyle = pic ? `style="background-image:url(${pic})"` : '';
-          const avatarContent = pic ? '' : '👤';
-          return `
-            <div onclick="App.openChat('${c}')" 
-                 class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${currentRoom?.includes(c) ? 'bg-zinc-800' : ''}">
-              <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
-              <div class="flex-1">
-                <div class="font-semibold">${c}</div>
-                <div class="text-xs text-emerald-400">online</div>
-              </div>
-            </div>
-          `;
-        }).join("");
+  renderContacts(contacts, currentRoom, profiles) {
+    if (contacts.length === 0) {
+      this.elements.contactList.innerHTML = `<div class="p-8 text-center text-zinc-500">Belum ada kontak<br><small>Klik tombol di atas</small></div>`;
+      return;
+    }
+
+    const html = contacts.map(c => {
+      const pic = profiles[c] || null;
+      const avatarStyle = pic ? `style="background-image:url(${pic})"` : '';
+      const avatarContent = pic ? '' : '👤';
+      const isActive = currentRoom && currentRoom.includes(c);
+      return `
+        <div onclick="App.openChat('${c}')" 
+             class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${isActive ? 'bg-zinc-800' : ''}">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
+          <div class="flex-1">
+            <div class="font-semibold">${c}</div>
+            <div class="text-xs text-emerald-400">online</div>
+          </div>
+        </div>
+      `;
+    }).join("");
     this.elements.contactList.innerHTML = html;
   },
 
   renderMessages(messages, myId) {
     const html = messages.map(m => {
       const isMe = m.sender === myId;
-      return m.type === "image"
-        ? `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}"><img src="${m.content}" class="max-w-xs rounded-3xl shadow-2xl"></div>`
-        : `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
-             <div class="${isMe ? 'bg-blue-600' : 'bg-zinc-800'} px-5 py-3 rounded-3xl max-w-xs">${m.content}</div>
-           </div>`;
+
+      if (m.type === "image") {
+        return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+                  <img src="${m.content}" class="max-w-[70%] sm:max-w-xs rounded-3xl shadow-2xl">
+                </div>`;
+      }
+
+      if (m.type === "audio") {
+        return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+                  <audio controls src="${m.content}" class="max-w-xs"></audio>
+                </div>`;
+      }
+
+      return `<div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+                <div class="${isMe ? 'bg-blue-600' : 'bg-zinc-800'} px-5 py-3 rounded-3xl max-w-[70%] sm:max-w-xs break-words">
+                  ${m.content}
+                </div>
+              </div>`;
     }).join("");
+
     this.elements.messages.innerHTML = html;
     this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
   },
@@ -199,7 +231,7 @@ const UI = {
 };
 
 // ==============================================
-// FIREBASE SERVICE (FIXED CLEAN)
+// FIREBASE SERVICE
 // ==============================================
 const FirebaseService = {
   db: null,
@@ -211,18 +243,11 @@ const FirebaseService = {
   },
 
   listenToRoom(roomId, callback) {
-    // MATIIN SEMUA LISTENER LAMA
-    if (this.currentListener) {
-      this.currentListener.off();
-      this.currentListener = null;
-    }
-
+    if (this.currentListener) this.currentListener.off();
     const ref = this.db.ref(`chats/${roomId}/messages`);
-    this.currentListener = ref;
-
-    ref.on("value", snap => {
+    this.currentListener = ref.on("value", snap => {
       const data = snap.val() || {};
-      const msgs = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+      const msgs = Object.values(data).sort((a,b) => a.timestamp - b.timestamp);
       callback(msgs);
     });
   },
@@ -232,7 +257,7 @@ const FirebaseService = {
       const data = snap.val() || {};
       const profiles = {};
       Object.keys(data).forEach(uid => {
-        if (data[uid].profilePic) profiles[uid] = data[uid].profilePic;
+        if (data[uid]?.profilePic) profiles[uid] = data[uid].profilePic;
       });
       callback(profiles);
     });
@@ -244,27 +269,32 @@ const FirebaseService = {
 
   sendMessage(roomId, sender, content, type = "text") {
     this.db.ref(`chats/${roomId}/messages`).push({
-      sender,
-      content,
-      type,
-      timestamp: Date.now()
+      sender, content, type, timestamp: Date.now()
     });
   },
 
-  sendPhoto(roomId, sender, dataUrl) {
-    this.sendMessage(roomId, sender, dataUrl, "image");
+  sendCallSignal(roomId, data) {
+    this.db.ref(`calls/${roomId}`).set(data);
   }
 };
 
-
 // ==============================================
-// APP (FIXED CLEAN)
+// APP
 // ==============================================
 const App = {
   myId: "",
   contacts: [],
   currentRoom: null,
   profiles: {},
+
+  // Voice Note
+  mediaRecorder: null,
+  audioChunks: [],
+
+  // WebRTC Call
+  peer: null,
+  localStream: null,
+  callListenerRef: null,
 
   start() {
     this.myId = Storage.getMyId();
@@ -278,46 +308,27 @@ const App = {
       FirebaseService.listenProfiles(profiles => {
         this.profiles = profiles;
         if (profiles[this.myId]) UI.setMyAvatar(profiles[this.myId]);
-        this.renderContacts();
+        UI.renderContacts(this.contacts, this.currentRoom, profiles);
       });
     } else {
       UI.showLogin();
     }
 
     this.bindEvents();
+    this.initVoiceNote();
+    this.initCallEvents();
   },
 
   bindEvents() {
-    document.getElementById("btn-login").onclick = () => this.handleLogin();
-    document.getElementById("btn-new-chat").onclick = () => UI.showNewChat();
+    document.getElementById("btn-login").onclick     = () => this.handleLogin();
+    document.getElementById("btn-new-chat").onclick  = () => UI.showNewChat();
     document.getElementById("btn-cancel-new").onclick = () => UI.hideNewChat();
     document.getElementById("btn-add-contact").onclick = () => this.addContactAndOpen();
-    document.getElementById("btn-send").onclick = () => this.sendText();
-    document.getElementById("btn-upload").onclick = () => UI.elements.fileInput.click();
-    document.getElementById("file-input").onchange = e => this.sendPhoto(e.target);
+    document.getElementById("btn-send").onclick      = () => this.sendText();
+    document.getElementById("btn-upload").onclick    = () => UI.elements.fileInput.click();
+    document.getElementById("file-input").onchange   = e => this.sendPhoto(e.target);
     UI.elements.textInput.onkeypress = e => { if (e.key === "Enter") this.sendText(); };
-  },
-
-  renderContacts() {
-    const html = this.contacts.map(c => {
-      const pic = this.profiles[c] || null;
-      const avatarStyle = pic ? `style="background-image:url(${pic})"` : "";
-      const avatarContent = pic ? "" : "👤";
-      const roomId = [this.myId, c].sort().join("_");
-
-      return `
-        <div onclick="App.openChat('${c}')"
-             class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${this.currentRoom === roomId ? 'bg-zinc-800' : ''}">
-          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
-          <div class="flex-1">
-            <div class="font-semibold">${c}</div>
-            <div class="text-xs text-emerald-400">online</div>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    UI.elements.contactList.innerHTML = html;
+    document.getElementById("profile-file").onchange = e => this.uploadProfilePic(e.target);
   },
 
   handleLogin() {
@@ -333,18 +344,18 @@ const App = {
     FirebaseService.listenProfiles(profiles => {
       this.profiles = profiles;
       if (profiles[this.myId]) UI.setMyAvatar(profiles[this.myId]);
-      this.renderContacts();
+      UI.renderContacts(this.contacts, this.currentRoom, profiles);
     });
   },
 
   addContactAndOpen() {
     const id = document.getElementById("new-contact-id").value.trim();
-    if (!id || id === this.myId) return alert("ID tidak valid!");
+    if (!id || id === this.myId) return alert("ID tidak valid atau sama dengan ID kamu!");
 
     Storage.addContact(id);
     this.contacts = Storage.getContacts();
     UI.hideNewChat();
-    this.renderContacts();
+    UI.renderContacts(this.contacts, this.currentRoom, this.profiles);
     this.openChat(id);
   },
 
@@ -353,7 +364,7 @@ const App = {
     this.currentRoom = roomId;
 
     UI.elements.messages.innerHTML = "";
-    this.renderContacts();
+    UI.renderContacts(this.contacts, roomId, this.profiles);
 
     const avatar = this.profiles[otherId] || null;
     UI.setHeader(otherId, avatar);
@@ -367,7 +378,6 @@ const App = {
   sendText() {
     const text = UI.elements.textInput.value.trim();
     if (!text || !this.currentRoom) return;
-
     FirebaseService.sendMessage(this.currentRoom, this.myId, text);
     UI.clearInput();
   },
@@ -379,9 +389,8 @@ const App = {
 
     const reader = new FileReader();
     reader.onload = e => {
-      FirebaseService.sendPhoto(this.currentRoom, this.myId, e.target.result);
+      FirebaseService.sendMessage(this.currentRoom, this.myId, e.target.result, "image");
     };
-
     reader.readAsDataURL(file);
     input.value = "";
   },
@@ -397,15 +406,185 @@ const App = {
       FirebaseService.saveProfilePic(this.myId, dataUrl);
       UI.setMyAvatar(dataUrl);
       this.profiles[this.myId] = dataUrl;
-      this.renderContacts();
+      UI.renderContacts(this.contacts, this.currentRoom, this.profiles);
     };
-
     reader.readAsDataURL(file);
     input.value = "";
+  },
+
+  // ────────────────────────────────────────────────
+  //           VOICE NOTE
+  // ────────────────────────────────────────────────
+  initVoiceNote() {
+    const recordBtn = document.getElementById("btn-record");
+
+    recordBtn.onclick = async () => {
+      if (!this.currentRoom) return alert("Buka chat dulu!");
+
+      if (!this.mediaRecorder) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          this.mediaRecorder = new MediaRecorder(stream);
+
+          this.mediaRecorder.ondataavailable = e => this.audioChunks.push(e.data);
+          this.mediaRecorder.onstop = () => {
+            const blob = new Blob(this.audioChunks, { type: "audio/webm" });
+            this.audioChunks = [];
+
+            const reader = new FileReader();
+            reader.onload = e => {
+              FirebaseService.sendMessage(this.currentRoom, this.myId, e.target.result, "audio");
+            };
+            reader.readAsDataURL(blob);
+          };
+        } catch (err) {
+          alert("Gagal mengakses mikrofon: " + err.message);
+          return;
+        }
+      }
+
+      if (this.mediaRecorder.state === "inactive") {
+        this.mediaRecorder.start();
+        recordBtn.textContent = "⏹";
+        recordBtn.classList.add("text-red-500");
+      } else {
+        this.mediaRecorder.stop();
+        recordBtn.textContent = "🎤";
+        recordBtn.classList.remove("text-red-500");
+      }
+    };
+  },
+
+  // ────────────────────────────────────────────────
+  //           SIMPLE AUDIO CALL (WebRTC)
+  // ────────────────────────────────────────────────
+  initCallEvents() {
+    document.getElementById("btn-call").onclick = () => this.startCall();
+  },
+
+  async startCall() {
+    if (!this.currentRoom) return alert("Buka chat dulu!");
+
+    try {
+      this.peer = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      });
+
+      this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.localStream.getTracks().forEach(track => this.peer.addTrack(track, this.localStream));
+
+      this.peer.ontrack = e => {
+        const audio = new Audio();
+        audio.srcObject = e.streams[0];
+        audio.autoplay = true;
+        audio.play().catch(() => {});
+      };
+
+      this.peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          FirebaseService.db.ref(`calls/${this.currentRoom}/candidates`).push(event.candidate);
+        }
+      };
+
+      FirebaseService.db.ref(`calls/${this.currentRoom}/candidates`).on("child_added", async snap => {
+        const candidate = snap.val();
+        if (candidate && this.peer && !this.peer.remoteDescription) {
+          try {
+            await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (err) {
+            console.warn("Gagal add ICE candidate:", err);
+          }
+        }
+      });
+
+      const offer = await this.peer.createOffer();
+      await this.peer.setLocalDescription(offer);
+
+      FirebaseService.sendCallSignal(this.currentRoom, {
+        offer: this.peer.localDescription,
+        caller: this.myId,
+        timestamp: Date.now()
+      });
+
+      // Dengar jawaban
+      FirebaseService.db.ref(`calls/${this.currentRoom}`).on("value", async snap => {
+        const data = snap.val();
+        if (!data) return;
+        if (data.answer && !this.peer.currentRemoteDescription) {
+          await this.peer.setRemoteDescription(new RTCSessionDescription(data.answer));
+        }
+      });
+
+    } catch (err) {
+      alert("Gagal memulai panggilan: " + err.message);
+      console.error(err);
+    }
+  },
+
+  async listenIncomingCall() {
+    if (!this.currentRoom || this.callListenerRef) return;
+
+    this.callListenerRef = FirebaseService.db.ref(`calls/${this.currentRoom}`).on("value", async snap => {
+      const data = snap.val();
+      if (!data || !data.offer || data.caller === this.myId) return;
+
+      if (!confirm(`Panggilan masuk dari ${data.caller}. Terima?`)) return;
+
+      try {
+        this.peer = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+
+        this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.localStream.getTracks().forEach(track => this.peer.addTrack(track, this.localStream));
+
+        this.peer.ontrack = e => {
+          const audio = new Audio();
+          audio.srcObject = e.streams[0];
+          audio.autoplay = true;
+          audio.play().catch(() => {});
+        };
+
+        this.peer.onicecandidate = (event) => {
+          if (event.candidate) {
+            FirebaseService.db.ref(`calls/${this.currentRoom}/candidates`).push(event.candidate);
+          }
+        };
+
+        FirebaseService.db.ref(`calls/${this.currentRoom}/candidates`).on("child_added", async snap => {
+          const candidate = snap.val();
+          if (candidate && this.peer) {
+            try {
+              await this.peer.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+              console.warn("Gagal add ICE candidate (penerima):", err);
+            }
+          }
+        });
+
+        await this.peer.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await this.peer.createAnswer();
+        await this.peer.setLocalDescription(answer);
+
+        FirebaseService.sendCallSignal(this.currentRoom, { ...data, answer: this.peer.localDescription });
+      } catch (err) {
+        alert("Gagal menerima panggilan: " + err.message);
+        console.error(err);
+      }
+    });
   }
 };
 
-// Start app
+// Getter & Setter untuk currentRoom + trigger listener panggilan
+Object.defineProperty(App, 'currentRoom', {
+  set(value) {
+    this._currentRoom = value;
+    if (value) App.listenIncomingCall();
+  },
+  get() { return this._currentRoom || null; }
+});
+
+// Jalankan aplikasi
 App.start();
 </script>
 </body>
