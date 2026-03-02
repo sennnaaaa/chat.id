@@ -37,10 +37,13 @@
                     👤
                 </div>
                 <div>
-                    <p class="text-xs text-zinc-400">ID KAMU</p>
-                    <div id="my-id-display" class="font-mono text-lg break-all"></div>
+                    <p class="text-xs text-zinc-400">NAMA KAMU</p>
+                    <div id="my-name-display" class="font-semibold text-lg break-all"></div>
+                    <div id="my-id-display" class="font-mono text-sm text-zinc-500 break-all"></div>
+                    <div id="my-status" class="text-xs text-emerald-400">Sedang online</div>
                 </div>
             </div>
+            <button id="btn-change-name" class="mt-4 w-full py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm font-medium">Ganti Nama</button>
             <input type="file" id="profile-file" accept="image/*" class="hidden" />
         </div>
 
@@ -50,6 +53,9 @@
             </button>
             <button id="btn-voice-room" class="w-full py-4 bg-green-600 hover:bg-green-700 rounded-3xl font-semibold flex items-center justify-center gap-2">
                 <span class="text-2xl">🔊</span> Voice Room
+            </button>
+            <button id="btn-mute" class="w-full py-4 bg-red-600 hover:bg-red-700 rounded-3xl font-semibold flex items-center justify-center gap-2 hidden">
+                <span class="text-2xl">🎤</span> Mute
             </button>
         </div>
 
@@ -64,7 +70,9 @@
     <div class="flex-1 flex flex-col">
         <div id="chat-header" class="h-16 bg-zinc-900 border-b border-zinc-800 px-6 flex items-center justify-between text-xl font-medium">
             <div>Pilih atau buat chat baru</div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
+                <button id="btn-view-profile" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-xl text-sm font-medium hidden">Lihat Profile</button>
+                <button id="btn-invite-voice" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-sm font-medium hidden">Invite ke Voice</button>
                 <div id="voice-status" class="text-sm text-zinc-400 hidden">Voice Room: <span id="voice-participants">0</span> orang</div>
             </div>
         </div>
@@ -100,11 +108,35 @@
     </div>
 </div>
 
+<!-- Modal Ganti Nama -->
+<div id="change-name-modal" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-3xl p-10 w-full max-w-md mx-4">
+        <h2 class="text-2xl font-bold mb-6">Ganti Nama Tampilan</h2>
+        <input id="new-name-input" type="text" placeholder="Masukkan nama baru" class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 text-xl outline-none focus:border-blue-500" />
+        <div class="flex gap-4 mt-8">
+            <button id="btn-cancel-name" class="flex-1 py-5 border border-zinc-700 rounded-3xl font-medium">Batal</button>
+            <button id="btn-save-name" class="flex-1 py-5 bg-blue-600 rounded-3xl font-medium">Simpan</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Lihat Profile -->
+<div id="view-profile-modal" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-50">
+    <div class="bg-zinc-900 rounded-3xl p-10 w-full max-w-md text-center">
+        <h2 class="text-2xl font-bold mb-6">Profile</h2>
+        <div id="profile-avatar" class="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-7xl avatar mb-4">👤</div>
+        <div id="profile-name" class="text-2xl font-semibold mb-2"></div>
+        <div id="profile-id" class="text-zinc-400 mb-6 font-mono"></div>
+        <div id="profile-status" class="text-lg mb-8"><span id="profile-status-text" class="text-emerald-400">Sedang online</span></div>
+        <button id="btn-close-profile" class="w-full py-5 bg-zinc-700 hover:bg-zinc-600 rounded-3xl font-medium">Tutup</button>
+    </div>
+</div>
+
 <input type="file" id="file-input" accept="image/*" class="hidden" />
 
 <script>
 // ==============================================
-// CONFIG
+// CONFIG & CONSTANTS
 // ==============================================
 const firebaseConfig = {
   apiKey: "AIzaSyCYdEimQqA64njI3msp3Bm_xfwrqKV4KRA",
@@ -120,7 +152,7 @@ const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const VOICE_ROOM_ID = "global-voice-room";
 
 // ==============================================
-// STORAGE & UI
+// STORAGE
 // ==============================================
 const Storage = {
   getMyId() { return localStorage.getItem("chat_myId") || ""; },
@@ -136,12 +168,19 @@ const Storage = {
   }
 };
 
+// ==============================================
+// UI HELPER
+// ==============================================
 const UI = {
   elements: {
     loginScreen: document.getElementById("login-screen"),
     newChatScreen: document.getElementById("new-chat-screen"),
+    changeNameModal: document.getElementById("change-name-modal"),
+    viewProfileModal: document.getElementById("view-profile-modal"),
+    myNameDisplay: document.getElementById("my-name-display"),
     myIdDisplay: document.getElementById("my-id-display"),
     myAvatar: document.getElementById("my-avatar"),
+    myStatus: document.getElementById("my-status"),
     contactList: document.getElementById("contact-list"),
     chatHeader: document.getElementById("chat-header"),
     messages: document.getElementById("messages"),
@@ -149,13 +188,21 @@ const UI = {
     fileInput: document.getElementById("file-input"),
     voiceStatus: document.getElementById("voice-status"),
     voiceParticipants: document.getElementById("voice-participants"),
+    btnMute: document.getElementById("btn-mute"),
+    btnInvite: null,
+    btnViewProfile: null,
   },
 
   showLogin() { this.elements.loginScreen.classList.remove("hidden"); },
   hideLogin() { this.elements.loginScreen.classList.add("hidden"); },
   showNewChat() { this.elements.newChatScreen.classList.remove("hidden"); },
   hideNewChat() { this.elements.newChatScreen.classList.add("hidden"); },
+  showChangeName() { this.elements.changeNameModal.classList.remove("hidden"); },
+  hideChangeName() { this.elements.changeNameModal.classList.add("hidden"); },
+  showViewProfile() { this.elements.viewProfileModal.classList.remove("hidden"); },
+  hideViewProfile() { this.elements.viewProfileModal.classList.add("hidden"); },
 
+  setMyName(name) { this.elements.myNameDisplay.textContent = name || Storage.getMyId(); },
   setMyId(id) { this.elements.myIdDisplay.textContent = id; },
   setMyAvatar(url) {
     if (url) {
@@ -167,39 +214,64 @@ const UI = {
     }
   },
 
-  setHeader(otherId, avatarUrl = null) {
+  setMyStatus(online) {
+    this.elements.myStatus.textContent = online ? "Sedang online" : "Offline";
+    this.elements.myStatus.classList.toggle("text-emerald-400", online);
+    this.elements.myStatus.classList.toggle("text-zinc-500", !online);
+  },
+
+  setHeader(otherId, displayName, avatarUrl = null, online = false) {
+    const nameToShow = displayName || otherId;
     const avatarStyle = avatarUrl ? `style="background-image:url(${avatarUrl})"` : '';
     const avatarContent = avatarUrl ? '' : '👤';
     this.elements.chatHeader.innerHTML = `
       <div class="flex items-center gap-4 flex-1">
         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
         <div>
-          <div class="font-semibold text-lg">${otherId}</div>
-          <div class="text-emerald-400 text-sm">sedang aktif</div>
+          <div class="font-semibold text-lg">${nameToShow}</div>
+          <div class="${online ? 'text-emerald-400' : 'text-zinc-500'} text-sm">
+            ${online ? 'Sedang online' : 'Offline'}
+          </div>
         </div>
       </div>
-      <div class="flex items-center gap-4">
-        <button id="btn-invite-voice" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-sm font-medium">
-          Invite ke Voice
-        </button>
+      <div class="flex items-center gap-3">
+        <button id="btn-view-profile" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 rounded-xl text-sm font-medium">Lihat Profile</button>
+        <button id="btn-invite-voice" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-sm font-medium">Invite ke Voice</button>
         <div id="voice-status" class="text-sm text-zinc-400 hidden">Voice Room: <span id="voice-participants">0</span> orang</div>
       </div>`;
 
-    // Bind invite button
-    document.getElementById("btn-invite-voice")?.addEventListener("click", () => {
-      if (confirm(`Invite ${otherId} ke Voice Room?`)) {
-        VoiceRoom.inviteUser(otherId);
-      }
+    this.elements.btnInvite = document.getElementById("btn-invite-voice");
+    this.elements.btnViewProfile = document.getElementById("btn-view-profile");
+
+    this.elements.btnInvite?.addEventListener("click", () => {
+      if (confirm(`Invite ${otherId} ke Voice Room?`)) VoiceRoom.inviteUser(otherId);
+    });
+
+    this.elements.btnViewProfile?.addEventListener("click", () => {
+      UI.showViewProfile(otherId, displayName, avatarUrl, online);
     });
   },
 
-  renderContacts(contacts, currentRoom, profiles) {
+  showViewProfile(otherId, displayName, avatarUrl, online) {
+    document.getElementById("profile-avatar").style.backgroundImage = avatarUrl ? `url(${avatarUrl})` : '';
+    document.getElementById("profile-avatar").innerHTML = avatarUrl ? '' : '👤';
+    document.getElementById("profile-name").textContent = displayName || otherId;
+    document.getElementById("profile-id").textContent = otherId;
+    document.getElementById("profile-status-text").textContent = online ? "Sedang online" : "Offline";
+    document.getElementById("profile-status-text").classList.toggle("text-emerald-400", online);
+    document.getElementById("profile-status-text").classList.toggle("text-zinc-500", !online);
+    this.showViewProfile();
+  },
+
+  renderContacts(contacts, currentRoom, profiles, displayNames, onlineStatus) {
     if (contacts.length === 0) {
       this.elements.contactList.innerHTML = `<div class="p-8 text-center text-zinc-500">Belum ada kontak<br><small>Klik tombol di atas</small></div>`;
       return;
     }
     this.elements.contactList.innerHTML = contacts.map(c => {
       const pic = profiles[c] || null;
+      const name = displayNames[c] || c;
+      const online = onlineStatus[c] || false;
       const avatarStyle = pic ? `style="background-image:url(${pic})"` : '';
       const avatarContent = pic ? '' : '👤';
       const isActive = currentRoom && currentRoom.includes(c);
@@ -207,8 +279,10 @@ const UI = {
         <div onclick="App.openChat('${c}')" class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${isActive ? 'bg-zinc-800' : ''}">
           <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
           <div class="flex-1">
-            <div class="font-semibold">${c}</div>
-            <div class="text-xs text-emerald-400">online</div>
+            <div class="font-semibold">${name}</div>
+            <div class="${online ? 'text-emerald-400' : 'text-zinc-500'} text-xs">
+              ${online ? 'online' : 'offline'}
+            </div>
           </div>
         </div>
       `;
@@ -230,43 +304,90 @@ const UI = {
   updateVoiceStatus(count) {
     this.elements.voiceParticipants.textContent = count;
     this.elements.voiceStatus.classList.toggle("hidden", count <= 0);
+  },
+
+  showMuteButton(show) {
+    this.elements.btnMute.classList.toggle("hidden", !show);
+  },
+
+  setMuteButton(muted) {
+    const btn = this.elements.btnMute;
+    if (muted) {
+      btn.innerHTML = '<span class="text-2xl">🔇</span> Unmute';
+      btn.classList.remove("bg-red-600", "hover:bg-red-700");
+      btn.classList.add("bg-zinc-700", "hover:bg-zinc-600");
+    } else {
+      btn.innerHTML = '<span class="text-2xl">🎤</span> Mute';
+      btn.classList.remove("bg-zinc-700", "hover:bg-zinc-600");
+      btn.classList.add("bg-red-600", "hover:bg-red-700");
+    }
   }
 };
 
 // ==============================================
-// FIREBASE
+// FIREBASE SERVICE
 // ==============================================
 const FirebaseService = {
   db: null,
-  currentListener: null,
+  chatListener: null,
 
   init() {
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     this.db = firebase.database();
   },
 
+  setOnlineStatus(online = true) {
+    const uid = App.myId;
+    if (!uid) return;
+
+    const statusRef = this.db.ref(`users/${uid}/online`);
+    const lastActiveRef = this.db.ref(`users/${uid}/lastActive`);
+
+    statusRef.set(online);
+    lastActiveRef.set(firebase.database.ServerValue.TIMESTAMP);
+
+    // Auto offline saat disconnect
+    this.db.ref(".info/connected").on("value", snap => {
+      if (snap.val() === false) return;
+      statusRef.onDisconnect().set(false);
+      lastActiveRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+    });
+  },
+
   listenToRoom(roomId, callback) {
-    if (this.currentListener) this.currentListener.off();
-    this.currentListener = this.db.ref(`chats/${roomId}/messages`).on("value", snap => {
+    if (this.chatListener) {
+      this.db.ref(`chats/${this.chatListener.roomId}/messages`).off("value");
+    }
+    const ref = this.db.ref(`chats/${roomId}/messages`);
+    const listener = ref.on("value", snap => {
       const data = snap.val() || {};
       const msgs = Object.values(data).sort((a,b) => a.timestamp - b.timestamp);
       callback(msgs);
     });
+    this.chatListener = { roomId, listener };
   },
 
-  listenProfiles(callback) {
+  listenProfilesAndNamesAndStatus(callback) {
     this.db.ref("users").on("value", snap => {
       const data = snap.val() || {};
       const profiles = {};
+      const displayNames = {};
+      const onlineStatus = {};
       Object.keys(data).forEach(uid => {
         if (data[uid]?.profilePic) profiles[uid] = data[uid].profilePic;
+        if (data[uid]?.displayName) displayNames[uid] = data[uid].displayName;
+        onlineStatus[uid] = data[uid]?.online === true;
       });
-      callback(profiles);
+      callback(profiles, displayNames, onlineStatus);
     });
   },
 
   saveProfilePic(uid, dataUrl) {
     this.db.ref(`users/${uid}/profilePic`).set(dataUrl);
+  },
+
+  saveDisplayName(uid, name) {
+    this.db.ref(`users/${uid}/displayName`).set(name);
   },
 
   sendMessage(roomId, sender, content, type = "text") {
@@ -275,13 +396,15 @@ const FirebaseService = {
 };
 
 // ==============================================
-// VOICE ROOM (invite-only)
+// VOICE ROOM
 // ==============================================
 const VoiceRoom = {
   localStream: null,
   peers: {},
   myId: null,
   allowedUsers: [],
+  isMuted: false,
+  audioTrack: null,
 
   async loadAllowedUsers() {
     const snap = await FirebaseService.db.ref(`voice-room/invites/${VOICE_ROOM_ID}/allowed`).once("value");
@@ -289,7 +412,7 @@ const VoiceRoom = {
   },
 
   isAllowed(uid) {
-    return this.allowedUsers.includes(uid) || uid === "admin"; // tambah admin kalau mau
+    return this.allowedUsers.includes(uid);
   },
 
   async inviteUser(targetId) {
@@ -318,20 +441,21 @@ const VoiceRoom = {
     try {
       this.myId = App.myId;
       this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.audioTrack = this.localStream.getAudioTracks()[0];
 
       FirebaseService.db.ref(`voice-room/participants/${this.myId}`).set({
         joinedAt: Date.now(),
-        muted: false
+        muted: this.isMuted
       });
 
-      // Dengar participant baru
+      UI.elements.btnMute.onclick = () => this.toggleMute();
+
       FirebaseService.db.ref(`voice-room/participants`).on("child_added", snap => {
         const uid = snap.key;
         if (uid === this.myId || !this.isAllowed(uid)) return;
         this.createPeerConnection(uid);
       });
 
-      // Participant keluar
       FirebaseService.db.ref(`voice-room/participants`).on("child_removed", snap => {
         const uid = snap.key;
         if (this.peers[uid]) {
@@ -341,7 +465,6 @@ const VoiceRoom = {
         UI.updateVoiceStatus(Object.keys(this.peers).length + (this.localStream ? 1 : 0));
       });
 
-      // Signaling
       FirebaseService.db.ref(`voice-room/signaling`).on("child_added", async snap => {
         const data = snap.val();
         if (data.to !== this.myId) return;
@@ -367,8 +490,10 @@ const VoiceRoom = {
       });
 
       UI.updateVoiceStatus(1);
+      UI.showMuteButton(true);
+      UI.setMuteButton(this.isMuted);
       document.getElementById("btn-voice-room").innerHTML = '<span class="text-2xl">🚪</span> Keluar Voice Room';
-      alert("Kamu masuk Voice Room! Semua yang diinvite bisa dengar suara kamu.");
+      alert("Kamu masuk Voice Room!");
 
     } catch (err) {
       alert("Gagal akses mikrofon: " + err.message);
@@ -380,6 +505,7 @@ const VoiceRoom = {
 
     this.localStream.getTracks().forEach(t => t.stop());
     this.localStream = null;
+    this.audioTrack = null;
 
     Object.values(this.peers).forEach(pc => pc.close());
     this.peers = {};
@@ -387,8 +513,20 @@ const VoiceRoom = {
     FirebaseService.db.ref(`voice-room/participants/${this.myId}`).remove();
 
     UI.updateVoiceStatus(0);
+    UI.showMuteButton(false);
     document.getElementById("btn-voice-room").innerHTML = '<span class="text-2xl">🔊</span> Voice Room';
     alert("Kamu keluar dari Voice Room.");
+  },
+
+  toggleMute() {
+    if (!this.audioTrack) return;
+
+    this.isMuted = !this.isMuted;
+    this.audioTrack.enabled = !this.isMuted;
+
+    FirebaseService.db.ref(`voice-room/participants/${this.myId}/muted`).set(this.isMuted);
+
+    UI.setMuteButton(this.isMuted);
   },
 
   createPeerConnection(targetId) {
@@ -396,7 +534,9 @@ const VoiceRoom = {
 
     const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
-    this.localStream?.getTracks().forEach(track => pc.addTrack(track, this.localStream));
+    if (this.localStream && !this.isMuted) {
+      this.localStream.getTracks().forEach(track => pc.addTrack(track, this.localStream));
+    }
 
     pc.ontrack = e => {
       const audio = new Audio();
@@ -438,9 +578,22 @@ const App = {
   contacts: [],
   currentRoom: null,
   profiles: {},
+  displayNames: {},
+  onlineStatus: {},
 
   mediaRecorder: null,
   audioChunks: [],
+
+  cleanupOnRoomChange() {
+    if (FirebaseService.chatListener) {
+      FirebaseService.db.ref(`chats/${FirebaseService.chatListener.roomId}/messages`).off("value");
+      FirebaseService.chatListener = null;
+    }
+    document.getElementById("messages").innerHTML = "";
+    document.getElementById("text-input").value = "";
+    document.getElementById("btn-invite-voice")?.classList.add("hidden");
+    document.getElementById("btn-view-profile")?.classList.add("hidden");
+  },
 
   start() {
     this.myId = Storage.getMyId();
@@ -451,10 +604,17 @@ const App = {
       UI.setMyId(this.myId);
       FirebaseService.init();
 
-      FirebaseService.listenProfiles(profiles => {
+      FirebaseService.setOnlineStatus(true);
+
+      FirebaseService.listenProfilesAndNamesAndStatus((profiles, displayNames, onlineStatus) => {
         this.profiles = profiles;
-        if (profiles[this.myId]) UI.setMyAvatar(profiles[this.myId]);
-        UI.renderContacts(this.contacts, this.currentRoom, profiles);
+        this.displayNames = displayNames;
+        this.onlineStatus = onlineStatus;
+
+        UI.setMyAvatar(profiles[this.myId]);
+        UI.setMyName(displayNames[this.myId]);
+        UI.setMyStatus(onlineStatus[this.myId] !== false);
+        UI.renderContacts(this.contacts, this.currentRoom, profiles, displayNames, onlineStatus);
       });
     } else {
       UI.showLogin();
@@ -476,12 +636,23 @@ const App = {
     UI.elements.textInput.onkeypress = e => { if (e.key === "Enter") this.sendText(); };
 
     document.getElementById("btn-voice-room").onclick = async () => {
-      if (VoiceRoom.localStream) {
-        VoiceRoom.leave();
-      } else {
-        await VoiceRoom.join();
-      }
+      if (VoiceRoom.localStream) VoiceRoom.leave();
+      else await VoiceRoom.join();
     };
+
+    document.getElementById("btn-change-name").onclick = () => UI.showChangeName();
+    document.getElementById("btn-cancel-name").onclick = () => UI.hideChangeName();
+    document.getElementById("btn-save-name").onclick = () => {
+      const newName = document.getElementById("new-name-input").value.trim();
+      if (!newName) return alert("Nama tidak boleh kosong!");
+      FirebaseService.saveDisplayName(this.myId, newName);
+      UI.setMyName(newName);
+      UI.hideChangeName();
+      document.getElementById("new-name-input").value = "";
+      alert("Nama berhasil diubah!");
+    };
+
+    document.getElementById("btn-close-profile").onclick = () => UI.hideViewProfile();
   },
 
   handleLogin() {
@@ -493,10 +664,17 @@ const App = {
     UI.setMyId(id);
     FirebaseService.init();
 
-    FirebaseService.listenProfiles(profiles => {
+    FirebaseService.setOnlineStatus(true);
+
+    FirebaseService.listenProfilesAndNamesAndStatus((profiles, displayNames, onlineStatus) => {
       this.profiles = profiles;
-      if (profiles[this.myId]) UI.setMyAvatar(profiles[this.myId]);
-      UI.renderContacts(this.contacts, this.currentRoom, profiles);
+      this.displayNames = displayNames;
+      this.onlineStatus = onlineStatus;
+
+      UI.setMyAvatar(profiles[this.myId]);
+      UI.setMyName(displayNames[this.myId]);
+      UI.setMyStatus(onlineStatus[this.myId] !== false);
+      UI.renderContacts(this.contacts, this.currentRoom, profiles, displayNames, onlineStatus);
     });
   },
 
@@ -506,17 +684,24 @@ const App = {
     Storage.addContact(id);
     this.contacts = Storage.getContacts();
     UI.hideNewChat();
-    UI.renderContacts(this.contacts, this.currentRoom, this.profiles);
+    UI.renderContacts(this.contacts, this.currentRoom, this.profiles, this.displayNames, this.onlineStatus);
     this.openChat(id);
   },
 
   openChat(otherId) {
+    this.cleanupOnRoomChange();
+
     const roomId = [this.myId, otherId].sort().join("_");
     this.currentRoom = roomId;
+
     UI.elements.messages.innerHTML = "";
-    UI.renderContacts(this.contacts, roomId, this.profiles);
+    UI.renderContacts(this.contacts, roomId, this.profiles, this.displayNames, this.onlineStatus);
+
     const avatar = this.profiles[otherId] || null;
-    UI.setHeader(otherId, avatar);
+    const displayName = this.displayNames[otherId];
+    const online = this.onlineStatus[otherId] || false;
+    UI.setHeader(otherId, displayName, avatar, online);
+
     FirebaseService.listenToRoom(roomId, msgs => {
       if (this.currentRoom !== roomId) return;
       UI.renderMessages(msgs, this.myId);
@@ -550,7 +735,7 @@ const App = {
       FirebaseService.saveProfilePic(this.myId, dataUrl);
       UI.setMyAvatar(dataUrl);
       this.profiles[this.myId] = dataUrl;
-      UI.renderContacts(this.contacts, this.currentRoom, this.profiles);
+      UI.renderContacts(this.contacts, this.currentRoom, this.profiles, this.displayNames, this.onlineStatus);
     };
     reader.readAsDataURL(file);
     input.value = "";
@@ -591,6 +776,11 @@ const App = {
 };
 
 App.start();
+
+// Cleanup status online saat tab/window ditutup
+window.addEventListener("beforeunload", () => {
+  FirebaseService.setOnlineStatus(false);
+});
 </script>
 </body>
 </html>
