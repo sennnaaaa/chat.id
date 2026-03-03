@@ -263,6 +263,7 @@ const UI = {
     this.showViewProfile();
   },
 
+  // === PERBAIKAN UTAMA: renderContacts sekarang pakai data-contact-id ===
   renderContacts(contacts, currentRoom, profiles, displayNames, onlineStatus) {
     if (contacts.length === 0) {
       this.elements.contactList.innerHTML = `<div class="p-8 text-center text-zinc-500">Belum ada kontak<br><small>Klik tombol di atas</small></div>`;
@@ -276,7 +277,7 @@ const UI = {
       const avatarContent = pic ? '' : '👤';
       const isActive = currentRoom && currentRoom.includes(c);
       return `
-        <div onclick="App.openChat('${c}')" class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${isActive ? 'bg-zinc-800' : ''}">
+        <div data-contact-id="${c}" onclick="App.openChat('${c}')" class="px-6 py-4 hover:bg-zinc-800 cursor-pointer flex items-center gap-4 border-b border-zinc-800 ${isActive ? 'bg-zinc-800' : ''}">
           <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl avatar" ${avatarStyle}>${avatarContent}</div>
           <div class="flex-1">
             <div class="font-semibold">${name}</div>
@@ -287,6 +288,14 @@ const UI = {
         </div>
       `;
     }).join("");
+  },
+
+  // === BARU: highlight active chat TANPA rebuild seluruh sidebar (ini yang bikin lag hilang) ===
+  updateActiveHighlight(activeContactId) {
+    const contactItems = this.elements.contactList.querySelectorAll('div[data-contact-id]');
+    contactItems.forEach(item => {
+      item.classList.toggle('bg-zinc-800', item.dataset.contactId === activeContactId);
+    });
   },
 
   renderMessages(messages, myId) {
@@ -346,7 +355,6 @@ const FirebaseService = {
     statusRef.set(online);
     lastActiveRef.set(firebase.database.ServerValue.TIMESTAMP);
 
-    // Auto offline saat disconnect
     this.db.ref(".info/connected").on("value", snap => {
       if (snap.val() === false) return;
       statusRef.onDisconnect().set(false);
@@ -688,6 +696,7 @@ const App = {
     this.openChat(id);
   },
 
+  // === PERBAIKAN UTAMA: openChat sekarang SUPER RINGAN ===
   openChat(otherId) {
     this.cleanupOnRoomChange();
 
@@ -695,7 +704,7 @@ const App = {
     this.currentRoom = roomId;
 
     UI.elements.messages.innerHTML = "";
-    UI.renderContacts(this.contacts, roomId, this.profiles, this.displayNames, this.onlineStatus);
+    // TIDAK lagi renderContacts di sini (ini yang bikin lag sebelumnya)
 
     const avatar = this.profiles[otherId] || null;
     const displayName = this.displayNames[otherId];
@@ -706,6 +715,9 @@ const App = {
       if (this.currentRoom !== roomId) return;
       UI.renderMessages(msgs, this.myId);
     });
+
+    // Highlight active cuma toggle class (cepet banget!)
+    UI.updateActiveHighlight(otherId);
   },
 
   sendText() {
